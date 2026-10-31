@@ -1,56 +1,119 @@
-# Welcome to your Expo app 👋
+# MealSeal — Secure Digital Meal Voucher System
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+MealSeal is a React Native application that creates digitally signed meal vouchers using **ECDSA P-256 and SHA-256**. It uses Firebase for authentication and Firestore storage, with a Node.js backend for secure voucher signing.
 
-## Get started
+## Requirements
 
-1. Install dependencies
+- Node.js and npm
+- Git
+- Expo Go (Android)
+- Firebase project with Authentication and Firestore enabled
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## 1. Clone and Install
 
 ```bash
-npm run reset-project
+git clone https://github.com/YOUR_USERNAME/MealSeal.git
+cd MealSeal
+npm install
 ```
 
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
+Install backend dependencies:
 
-### Other setup steps
+```bash
+cd backend
+npm install
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+## 2. Firebase Setup
 
-## Learn more
+1. Enable Email/Password Authentication and Cloud Firestore in Firebase.
+2. Configure the Firebase project in `src/app/config/firebase.ts`.
+3. Download the Firebase Admin SDK service account key from **Firebase Console → Project Settings → Service Accounts**.
+4. Save the key as `backend/serviceAccountKey.json`.
 
-To learn more about developing your project with Expo, look at the following resources:
+The backend and mobile app must use the same Firebase project.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+**Important:** Never upload the service account key to GitHub.
 
-## Join the community
+## 3. Generate Signing Keys
 
-Join our community of developers creating universal apps.
+Inside the `backend` folder, run:
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```bash
+node generateKeys.js
+```
+
+This creates:
+
+- `keys/private.pem` — used to sign vouchers.
+- `keys/public.pem` — used to verify signatures.
+
+If using an existing shared backend, use its existing keys rather than generating new ones.
+
+## 4. Configure Backend URL
+
+Find your computer's IPv4 address:
+
+```powershell
+ipconfig
+```
+
+Update `src/app/config/api.ts`:
+
+```typescript
+export const API_BASE_URL = "http://YOUR_COMPUTER_IP:3000";
+```
+
+Replace `YOUR_COMPUTER_IP` with your computer's actual IPv4 address.
+
+## 5. Run the Project
+
+**Both servers must run simultaneously.**
+
+**Terminal 1 — Backend**
+
+```bash
+cd backend
+node server.js
+```
+
+**Terminal 2 — Expo**
+
+From the main `MealSeal` folder:
+
+```bash
+npx expo start
+```
+
+Scan the Expo QR code using Expo Go on your Android phone.
+
+Make sure your phone and computer are connected to the same Wi-Fi network.
+
+## 6. Test Backend Connection
+
+Open this URL on your phone:
+
+```text
+http://YOUR_COMPUTER_IP:3000/health
+```
+
+Expected response:
+
+```json
+{
+  "success": true,
+  "application": "MealSeal",
+  "backend": "running",
+  "firebase": "connected",
+  "firestore": "connected"
+}
+```
+
+## Important Notes
+
+- Keep the Node.js backend and Expo running together.
+- Firebase user accounts and corresponding Firestore `users/{uid}` role documents must exist before login.
+- Never upload `serviceAccountKey.json` or `keys/private.pem` to GitHub.
+- The private signing key must remain on the backend.
+- The current application supports voucher creation, digital signing, and QR generation. Restaurant scanning and redemption are still under development.
+- Local HTTP is for development only; production use requires HTTPS.
