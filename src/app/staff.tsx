@@ -1,5 +1,4 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { signOut } from "firebase/auth";
 import { useCallback, useState } from "react";
 
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -9,25 +8,26 @@ import { BottomTabBar } from "@/components/ui/bottom-tab-bar";
 import { Icon } from "@/components/ui/icon";
 import { StatusTokens } from "@/constants/status";
 import { Colors, Radius, Spacing, Type } from "@/constants/theme";
+import { signOut as authSignOut, getCurrentUser } from "@/lib/auth-client";
 import { mealsServedToday, readRedemptions, RedemptionEntry } from "@/lib/staff-activity";
-
-import { auth } from "./config/firebase";
 
 export default function StaffDashboard() {
   const router = useRouter();
   const [recent, setRecent] = useState<RedemptionEntry[]>([]);
+  const [staffName, setStaffName] = useState("there");
 
   useFocusEffect(
     useCallback(() => {
       void readRedemptions().then(setRecent);
+      void getCurrentUser().then((user) => {
+        if (user?.email) setStaffName(user.email.split("@")[0]);
+      });
     }, [])
   );
 
   const handleSignOutPress = () => {
-    void signOut(auth).then(() => router.replace("/sign-in"));
+    void authSignOut().then(() => router.replace("/sign-in"));
   };
-
-  const staffName = auth.currentUser?.email?.split("@")[0] ?? "there";
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>

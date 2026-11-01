@@ -17,19 +17,33 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Icon } from "@/components/ui/icon";
-import { TextField } from "@/components/ui/text-field";
 import { Colors, Radius, Spacing, Type } from "@/constants/theme";
+import { getAccessToken } from "@/lib/auth-client";
+import { parseJsonResponse } from "@/lib/api";
 
 import { API_BASE_URL } from "./config/api";
-import { auth } from "./config/firebase";
 
 type MealType = "Breakfast" | "Lunch" | "Dinner";
 type Step = "form" | "review";
 
 const MEAL_TYPES: MealType[] = ["Breakfast", "Lunch", "Dinner"];
 
+// Static for now — there's no café-management endpoint yet, only a free-text restaurantId on
+// each account/voucher. CAFE-01 matches the seeded staff account so a freshly set-up backend has
+// at least one café that can actually redeem a voucher end to end.
+const CAFE_OPTIONS = [
+  { id: "CAFE-01", name: "Hillside Café" },
+  { id: "CAFE-02", name: "Riverside Kitchen" },
+  { id: "CAFE-03", name: "The Corner Cup" },
+];
+
 // Computed once at module load, not during render — a sensible default expiry (today + 7 days).
 const DEFAULT_EXPIRY_DATE = formatLocalDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
+
+function generateRecipientRef(): string {
+  const digits = String(Math.floor(Math.random() * 100000)).padStart(5, "0");
+  return `R-${digits}`;
+}
 
 function formatLocalDate(date: Date): string {
   const year = date.getFullYear();
@@ -48,37 +62,24 @@ export default function CreateVoucherScreen() {
   const router = useRouter();
 
   const [step, setStep] = useState<Step>("form");
-  const [recipientRef, setRecipientRef] = useState("");
-  const [restaurantId, setRestaurantId] = useState("");
+  // Auto-generated once on mount, not user-typed — see generateRecipientRef().
+  const [recipientRef, setRecipientRef] = useState(generateRecipientRef);
+  const [restaurantId, setRestaurantId] = useState(CAFE_OPTIONS[0].id);
   const [mealType, setMealType] = useState<MealType>("Lunch");
   const [quantity, setQuantity] = useState(1);
   const [expiryDate, setExpiryDate] = useState(DEFAULT_EXPIRY_DATE);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const goToReview = () => {
-    if (!recipientRef.trim()) {
-      Alert.alert("Missing information", "Please enter a recipient reference.");
-      return;
-    }
-
-    if (!restaurantId.trim()) {
-      Alert.alert("Missing information", "Please enter the assigned café.");
-      return;
-    }
-
-    setStep("review");
-  };
+  const goToReview = () => setStep("review");
 
   const handleConfirm = async () => {
     if (loading) return;
     setLoading(true);
 
     try {
-      const user = auth.currentUser;
-      if (!user) throw new Error("Please sign in again.");
-
-      const token = await user.getIdToken();
+      const token = await getAccessToken();
+      if (!token) throw new Error("Please sign in again.");
 
       const response = await fetch(`${API_BASE_URL}/vouchers/create`, {
         method: "POST",
@@ -96,17 +97,10 @@ export default function CreateVoucherScreen() {
         }),
       });
 
-      const responseText = await response.text();
-      let result: any;
+      const result = await parseJsonResponse<{ signedVoucher?: any }>(response);
 
-      try {
-        result = JSON.parse(responseText);
-      } catch {
-        throw new Error(`Backend returned an invalid response (HTTP ${response.status}).`);
-      }
-
-      if (!response.ok || !result.success || !result.signedVoucher) {
-        throw new Error(result.message || "Unable to create voucher.");
+      if (!result.signedVoucher) {
+        throw new Error("Unable to create voucher.");
       }
 
       const signedVoucher = result.signedVoucher;
@@ -126,9 +120,11 @@ export default function CreateVoucherScreen() {
     }
   };
 
+  const selectedCafe = CAFE_OPTIONS.find((c) => c.id === restaurantId) ?? CAFE_OPTIONS[0];
+
   const reviewRows = [
-    { k: "Recipient reference", v: recipientRef.trim() },
-    { k: "Café", v: restaurantId.trim() },
+    { k: "Recipient reference", v: recipientRef },
+    { k: "Café", v: `${selectedCafe.name} (${selectedCafe.id})` },
     { k: "Meal", v: mealType },
     { k: "Quantity", v: String(quantity) },
     { k: "Issued", v: "Today" },
@@ -162,24 +158,45 @@ export default function CreateVoucherScreen() {
         >
           {step === "form" ? (
             <View style={styles.form}>
-              <TextField
-                label="Recipient reference"
-                value={recipientRef}
-                onChangeText={setRecipientRef}
-                placeholder="e.g. R-0391"
-                autoCapitalize="characters"
-                editable={!loading}
-                helperText="Your internal reference — no names needed."
-              />
+              <View style={styles.field}>
+                <Text style={styles.label}>Recipient reference</Text>
+                <View style={styles.autoField}>
+                  <Text style={styles.autoFieldText}>{recipientRef}</Text>
+                  <View style={styles.autoRow}>
+                    <TouchableOpacity
+                      style={styles.regenerateButton}
+                      onPress={() => setRecipientRef(generateRecipientRef())}
+                      disabled={loading}
+                      accessibilityLabel="Generate a new reference"
+                    >
+                      <Icon name="refresh" size={16} color={Colors.light.primary} />
+                    </TouchableOpacity>
+                    <Text style={styles.autoBadge}>AUTO</Text>
+                  </View>
+                </View>
+                <Text style={styles.helper}>Your internal reference — no names needed.</Text>
+              </View>
 
-              <TextField
-                label="Assigned café"
-                value={restaurantId}
-                onChangeText={setRestaurantId}
-                placeholder="e.g. CAFE-01"
-                autoCapitalize="characters"
-                editable={!loading}
-              />
+              <View style={styles.field}>
+                <Text style={styles.label}>Assigned café</Text>
+                <View style={styles.chipRow}>
+                  {CAFE_OPTIONS.map((cafe) => {
+                    const selected = restaurantId === cafe.id;
+                    return (
+                      <TouchableOpacity
+                        key={cafe.id}
+                        style={[styles.chip, selected && styles.chipSelected]}
+                        onPress={() => setRestaurantId(cafe.id)}
+                        disabled={loading}
+                      >
+                        <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
+                          {cafe.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
 
               <View style={styles.field}>
                 <Text style={styles.label}>Meal type</Text>
@@ -264,8 +281,7 @@ export default function CreateVoucherScreen() {
                 <Icon name="seal" size={22} color="#1D6B47" />
                 <Text style={styles.trustBannerText}>
                   When you confirm, MealSeal digitally signs this voucher. It can be redeemed once,
-                  only at {restaurantId.trim() || "the assigned café"}, until{" "}
-                  {formatDisplayDate(expiryDate)}.
+                  only at {selectedCafe.name}, until {formatDisplayDate(expiryDate)}.
                 </Text>
               </View>
             </View>
@@ -333,6 +349,45 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontWeight: "600",
     color: Colors.light.ink,
+  },
+  helper: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: Colors.light.inkSecondary,
+  },
+  autoField: {
+    height: 52,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.light.surfaceSunken,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.md,
+  },
+  autoFieldText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.light.ink,
+  },
+  autoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  regenerateButton: {
+    width: 32,
+    height: 32,
+    borderRadius: Radius.sm,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  autoBadge: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    color: Colors.light.inkSecondary,
   },
   chipRow: {
     flexDirection: "row",

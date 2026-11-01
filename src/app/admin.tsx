@@ -1,5 +1,4 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { signOut } from "firebase/auth";
 import { useCallback, useState } from "react";
 
 import {
@@ -20,7 +19,7 @@ import { Icon } from "@/components/ui/icon";
 import { StatusChip } from "@/components/ui/status-chip";
 import { StatusTokens, voucherStatusToken } from "@/constants/status";
 import { Colors, Radius, Spacing, Type } from "@/constants/theme";
-import { auth } from "./config/firebase";
+import { signOut as authSignOut, getCurrentUser } from "@/lib/auth-client";
 import { fetchVouchers, Voucher } from "@/lib/vouchers";
 
 function greeting(): string {
@@ -45,6 +44,7 @@ export default function AdminDashboard() {
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [summary, setSummary] = useState({ activeCount: 0, expiringCount: 0, mealsThisWeek: 0 });
   const [error, setError] = useState("");
+  const [emailName, setEmailName] = useState("there");
 
   const load = useCallback(async (refresh = false) => {
     if (refresh) {
@@ -82,6 +82,9 @@ export default function AdminDashboard() {
   useFocusEffect(
     useCallback(() => {
       void load();
+      void getCurrentUser().then((user) => {
+        if (user?.email) setEmailName(user.email.split("@")[0]);
+      });
     }, [load])
   );
 
@@ -92,7 +95,7 @@ export default function AdminDashboard() {
         text: "Sign out",
         style: "destructive",
         onPress: () => {
-          void signOut(auth).then(() => router.replace("/sign-in"));
+          void authSignOut().then(() => router.replace("/sign-in"));
         },
       },
     ]);
@@ -104,7 +107,6 @@ export default function AdminDashboard() {
     .sort((a, b) => b.issuedAt - a.issuedAt)
     .slice(0, 4);
 
-  const emailName = auth.currentUser?.email?.split("@")[0] ?? "there";
   const initial = emailName.charAt(0).toUpperCase() || "?";
 
   return (

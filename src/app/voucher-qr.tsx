@@ -23,9 +23,10 @@ import { Icon } from "@/components/ui/icon";
 import { StatusChip } from "@/components/ui/status-chip";
 import { StatusTokens } from "@/constants/status";
 import { Colors, Radius, Spacing, Type } from "@/constants/theme";
+import { getAccessToken } from "@/lib/auth-client";
+import { parseJsonResponse } from "@/lib/api";
 
 import { API_BASE_URL } from "./config/api";
-import { auth } from "./config/firebase";
 
 type VoucherPayload = {
   version: number;
@@ -131,28 +132,15 @@ export default function VoucherQRScreen() {
           throw new Error("The create voucher screen did not provide the signed voucher.");
         }
 
-        const user = auth.currentUser;
-        if (!user) throw new Error("Please sign in again.");
-
-        const token = await user.getIdToken();
+        const token = await getAccessToken();
+        if (!token) throw new Error("Please sign in again.");
 
         const response = await fetch(
           `${API_BASE_URL}/vouchers/${encodeURIComponent(voucherIdParam)}/signed`,
           { method: "GET", headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } }
         );
 
-        const responseText = await response.text();
-        let result: any;
-
-        try {
-          result = JSON.parse(responseText);
-        } catch {
-          throw new Error(`Backend returned an invalid response (HTTP ${response.status}).`);
-        }
-
-        if (!response.ok || !result.success) {
-          throw new Error(result.message || "Unable to load voucher.");
-        }
+        const result = await parseJsonResponse<{ signedVoucher?: unknown }>(response);
 
         if (!validateSignedVoucher(result.signedVoucher)) {
           throw new Error("The backend returned incomplete voucher data.");

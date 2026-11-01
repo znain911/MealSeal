@@ -19,10 +19,10 @@ import { StatusChip } from "@/components/ui/status-chip";
 import { IconName } from "@/constants/icons";
 import { NetworkRejection, RejectionDetail, RejectionDetails, StatusTokens } from "@/constants/status";
 import { Colors, Radius, Spacing, Type } from "@/constants/theme";
+import { getAccessToken, getCurrentUser } from "@/lib/auth-client";
 import { recordRedemption } from "@/lib/staff-activity";
 
 import { API_BASE_URL } from "./config/api";
-import { auth } from "./config/firebase";
 
 type ScreenState = "SCANNING" | "VERIFYING" | "VERIFIED" | "REDEEMING" | "REDEEMED" | "ERROR";
 
@@ -176,14 +176,17 @@ export default function ScanVoucherScreen() {
   const [redeemedAt, setRedeemedAt] = useState<number | null>(null);
   const [manualSheetVisible, setManualSheetVisible] = useState(false);
   const [manualInput, setManualInput] = useState("");
+  const [staffEmail, setStaffEmail] = useState<string | null>(null);
 
   const scanLocked = useRef(false);
 
-  async function postVoucher(endpoint: string, voucher: SignedVoucher): Promise<VoucherResponse> {
-    const user = auth.currentUser;
-    if (!user) throw new VoucherApiError("UNAUTHORIZED", "Please sign in as café staff.");
+  useEffect(() => {
+    void getCurrentUser().then((user) => setStaffEmail(user?.email ?? null));
+  }, []);
 
-    const token = await user.getIdToken();
+  async function postVoucher(endpoint: string, voucher: SignedVoucher): Promise<VoucherResponse> {
+    const token = await getAccessToken();
+    if (!token) throw new VoucherApiError("UNAUTHORIZED", "Please sign in as café staff.");
 
     let response: Response;
 
@@ -358,7 +361,7 @@ export default function ScanVoucherScreen() {
           <View style={styles.cafeRow}>
             <Icon name="building" size={18} color="#B5AC9F" />
             <Text style={styles.cafeRowText}>
-              Checking vouchers for {auth.currentUser?.email ?? "your café"}
+              Checking vouchers for {staffEmail ?? "your café"}
             </Text>
           </View>
           <Button
