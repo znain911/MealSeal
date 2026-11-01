@@ -13,6 +13,8 @@ export default function RootLayout() {
         <Stack.Screen name="admin" />
         <Stack.Screen name="create-voucher" />
         <Stack.Screen name="voucher-qr" />
+        <Stack.Screen name="staff" />
+        <Stack.Screen name="scan-voucher" />
       </Stack>
     </ThemeProvider>
   );

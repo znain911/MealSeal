@@ -1,14 +1,13 @@
 
 import { useRouter } from "expo-router";
-import {
-  signInWithEmailAndPassword,
-  signOut
-} from "firebase/auth";
+import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { useState } from "react";
+
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -18,180 +17,249 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+
 import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, db } from "./config/firebase";
 
 export default function LoginScreen() {
+  const router = useRouter();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [role, setRole] = useState<string | null>(null);
-  const router = useRouter();
- // const navigatingRef = useRef(false);
 
-  
+  const handleLogin = async () => {
+    if (loading) return;
 
+    const cleanedEmail = email.trim();
 
-
-  
-const handleLogin = async () => {
-  if (!email.trim() || !password) {
-    Alert.alert("Missing details", "Enter your email and password.");
-    return;
-  }
-
-  setLoading(true);
-
-  try {
-    const result = await signInWithEmailAndPassword(
-      auth,
-      email.trim(),
-      password
-    );
-
-    const userDoc = await getDoc(
-      doc(db, "users", result.user.uid)
-    );
-
-    const userData = userDoc.data();
-
-    if (
-      !userDoc.exists() ||
-      userData?.active !== true ||
-      !["CHARITY_ADMIN", "RESTAURANT_STAFF"].includes(userData.role)
-    ) {
-      await signOut(auth);
-      Alert.alert("Access denied", "Your account is not authorised.");
+    if (!cleanedEmail || !password) {
+      Alert.alert(
+        "Missing Information",
+        "Please enter your email and password."
+      );
       return;
     }
 
-    if (userData.role === "CHARITY_ADMIN") {
-      router.replace("/admin");
-    } else {
-      setRole("RESTAURANT_STAFF");
+    setLoading(true);
+    Keyboard.dismiss();
+
+    try {
+      const credential = await signInWithEmailAndPassword(
+        auth,
+        cleanedEmail,
+        password
+      );
+
+      const uid = credential.user.uid;
+
+      const userSnapshot = await getDoc(
+        doc(db, "users", uid)
+      );
+
+      if (!userSnapshot.exists()) {
+        await signOut(auth);
+
+        Alert.alert(
+          "Access Denied",
+          "Your user profile was not found."
+        );
+        return;
+      }
+
+      const userData = userSnapshot.data();
+
+      if (userData.active !== true) {
+        await signOut(auth);
+
+        Alert.alert(
+          "Account Inactive",
+          "Your account is currently inactive."
+        );
+        return;
+      }
+
+      if (userData.role === "CHARITY_ADMIN") {
+        router.replace("/admin");
+      } else if (userData.role === "RESTAURANT_STAFF") {
+        router.replace("/staff");
+      } else {
+        await signOut(auth);
+
+        Alert.alert(
+          "Access Denied",
+          "Your account does not have a valid role."
+        );
+      }
+    } catch (error: any) {
+      console.error("Login error:", error);
+
+      let message =
+        "Unable to sign in. Please try again.";
+
+      if (
+        error?.code === "auth/invalid-credential" ||
+        error?.code === "auth/wrong-password" ||
+        error?.code === "auth/user-not-found"
+      ) {
+        message = "Incorrect email or password.";
+      } else if (error?.code === "auth/invalid-email") {
+        message = "Please enter a valid email address.";
+      } else if (error?.code === "auth/too-many-requests") {
+        message =
+          "Too many attempts. Please try again later.";
+      } else if (error?.code === "auth/network-request-failed") {
+        message =
+          "Network error. Please check your internet connection.";
+      }
+
+      Alert.alert("Login Failed", message);
+    } finally {
+      setLoading(false);
     }
-
-  } catch (error: any) {
-    console.error("Login error:", error);
-
-    Alert.alert(
-      "Sign in failed",
-      error?.message || "Please try again."
-    );
-  } finally {
-    setLoading(false);
-  }
-};
-
-
-  if (role) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.welcomeContainer}>
-          <Text style={styles.logo}>✦ MealSeal</Text>
-          <Text style={styles.welcomeTitle}>
-            Welcome!
-          </Text>
-          <Text style={styles.welcomeSubtitle}>
-            {role === "CHARITY_ADMIN"
-              ? "Charity Admin Dashboard"
-              : "Restaurant Staff Dashboard"}
-          </Text>
-          <TouchableOpacity
-            style={styles.button}
-            onPress={async () => {
-              await signOut(auth);
-              setRole(null);
-              setPassword("");
-            }}
-          >
-            <Text style={styles.buttonText}>Sign Out</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={styles.keyboardContainer}
+        behavior={
+          Platform.OS === "ios" ? "padding" : "height"
+        }
       >
         <ScrollView
+          style={styles.scrollView}
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={
+            Platform.OS === "ios"
+              ? "interactive"
+              : "on-drag"
+          }
+          showsVerticalScrollIndicator={false}
+          automaticallyAdjustKeyboardInsets={
+            Platform.OS === "ios"
+          }
         >
-          <View style={styles.brand}>
+          <View style={styles.logoSection}>
             <View style={styles.logoCircle}>
-              <Text style={styles.logoSymbol}>✦</Text>
+              <Text style={styles.logoIcon}>✦</Text>
             </View>
-            <Text style={styles.brandName}>MealSeal</Text>
+
+            <Text style={styles.brand}>MealSeal</Text>
+
             <Text style={styles.tagline}>
-              Secure meals. Trusted giving.
+              Secure Digital Meal Vouchers
             </Text>
           </View>
 
-          <View style={styles.card}>
-            <Text style={styles.heading}>Welcome back</Text>
-            <Text style={styles.description}>
-              Sign in to manage and redeem secure meal vouchers.
+          <View style={styles.loginCard}>
+            <Text style={styles.welcomeTitle}>
+              Welcome Back
             </Text>
 
-            <Text style={styles.label}>Email address</Text>
+            <Text style={styles.welcomeDescription}>
+              Sign in to securely manage or verify
+              digitally signed meal vouchers.
+            </Text>
+
+            <Text style={styles.label}>
+              Email Address
+            </Text>
+
             <TextInput
               style={styles.input}
-              placeholder="you@example.com"
-              placeholderTextColor="#9AA9A2"
+              placeholder="Enter your email"
+              placeholderTextColor="#9AA99E"
+              value={email}
+              onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
-              value={email}
-              onChangeText={setEmail}
+              autoComplete="email"
+              textContentType="emailAddress"
+              editable={!loading}
+              returnKeyType="next"
             />
 
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.passwordBox}>
+            <Text style={styles.label}>
+              Password
+            </Text>
+
+            <View style={styles.passwordContainer}>
               <TextInput
                 style={styles.passwordInput}
                 placeholder="Enter your password"
-                placeholderTextColor="#9AA9A2"
-                secureTextEntry={!showPassword}
+                placeholderTextColor="#9AA99E"
                 value={password}
                 onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="password"
+                textContentType="password"
+                editable={!loading}
+                returnKeyType="done"
+                onSubmitEditing={() => {
+                  void handleLogin();
+                }}
               />
+
               <TouchableOpacity
-                onPress={() => setShowPassword(!showPassword)}
+                onPress={() =>
+                  setShowPassword((previous) => !previous)
+                }
+                disabled={loading}
+                style={styles.showPasswordButton}
               >
-                <Text style={styles.showText}>
+                <Text style={styles.showPasswordText}>
                   {showPassword ? "Hide" : "Show"}
                 </Text>
               </TouchableOpacity>
             </View>
 
             <TouchableOpacity
-              style={[styles.button, loading && { opacity: 0.7 }]}
-              onPress={handleLogin}
+              style={[
+                styles.loginButton,
+                loading && styles.disabledButton,
+              ]}
               disabled={loading}
+              onPress={() => {
+                void handleLogin();
+              }}
             >
               {loading ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.buttonText}>Sign In  →</Text>
+                <Text style={styles.loginButtonText}>
+                  Sign In
+                </Text>
               )}
             </TouchableOpacity>
 
-            <View style={styles.secureRow}>
-              <Text style={styles.secureText}>
-                🔒 Protected with Firebase Authentication
+            <View style={styles.securityBox}>
+              <Text style={styles.securityTitle}>
+                Secure Authentication
+              </Text>
+
+              <Text style={styles.securityDescription}>
+                Access is protected by Firebase
+                Authentication and role-based
+                authorization.
               </Text>
             </View>
           </View>
 
-          <Text style={styles.footer}>
-            MEALSEAL  •  SECURE VOUCHER PLATFORM
-          </Text>
+          <View style={styles.footerSection}>
+            <Text style={styles.footerText}>
+              MEALSEAL • SECURE MEAL VOUCHER PLATFORM
+            </Text>
+
+            <Text style={styles.footerSubtext}>
+              ECDSA P-256 • SHA-256
+            </Text>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -203,146 +271,180 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F4F7F1",
   },
+
+  keyboardContainer: {
+    flex: 1,
+  },
+
+  scrollView: {
+    flex: 1,
+  },
+
   content: {
     flexGrow: 1,
+    paddingHorizontal: 22,
+    paddingTop: 28,
+    paddingBottom: 40,
     justifyContent: "center",
-    paddingHorizontal: 24,
-    paddingVertical: 40,
   },
-  brand: {
+
+  logoSection: {
     alignItems: "center",
-    marginBottom: 35,
+    marginBottom: 30,
   },
+
   logoCircle: {
-    width: 76,
-    height: 76,
+    width: 75,
+    height: 75,
     borderRadius: 25,
     backgroundColor: "#155E49",
-    justifyContent: "center",
     alignItems: "center",
-    marginBottom: 15,
+    justifyContent: "center",
+    marginBottom: 16,
   },
-  logoSymbol: {
-    fontSize: 42,
+
+  logoIcon: {
+    fontSize: 38,
     color: "#FFFFFF",
   },
-  brandName: {
+
+  brand: {
     fontSize: 34,
     fontWeight: "800",
-    color: "#153E32",
-    letterSpacing: -1,
+    color: "#155E49",
   },
+
   tagline: {
-    marginTop: 7,
     fontSize: 14,
     color: "#74877B",
+    marginTop: 7,
+    textAlign: "center",
   },
-  card: {
+
+  loginCard: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 26,
-    padding: 25,
+    padding: 24,
+    borderRadius: 22,
     borderWidth: 1,
-    borderColor: "#E8EEE8",
-    elevation: 3,
+    borderColor: "#E5ECE6",
   },
-  heading: {
+
+  welcomeTitle: {
     fontSize: 25,
     fontWeight: "800",
     color: "#183E32",
     marginBottom: 8,
   },
-  description: {
-    fontSize: 14,
-    lineHeight: 22,
-    color: "#7B8D82",
-    marginBottom: 28,
+
+  welcomeDescription: {
+    fontSize: 13,
+    color: "#74877B",
+    lineHeight: 21,
+    marginBottom: 25,
   },
+
   label: {
     fontSize: 13,
     fontWeight: "700",
     color: "#304E42",
     marginBottom: 9,
   },
+
   input: {
     height: 54,
-    borderRadius: 14,
-    backgroundColor: "#F7F9F6",
     borderWidth: 1,
-    borderColor: "#E1E9E1",
-    paddingHorizontal: 16,
+    borderColor: "#DDE7DF",
+    borderRadius: 13,
+    paddingHorizontal: 15,
     fontSize: 15,
-    color: "#193D32",
+    color: "#183E32",
+    backgroundColor: "#FAFCFA",
     marginBottom: 20,
   },
-  passwordBox: {
+
+  passwordContainer: {
     height: 54,
-    borderRadius: 14,
-    backgroundColor: "#F7F9F6",
-    borderWidth: 1,
-    borderColor: "#E1E9E1",
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    marginBottom: 26,
+    borderWidth: 1,
+    borderColor: "#DDE7DF",
+    borderRadius: 13,
+    backgroundColor: "#FAFCFA",
+    marginBottom: 25,
   },
+
   passwordInput: {
     flex: 1,
+    height: "100%",
+    paddingHorizontal: 15,
     fontSize: 15,
-    color: "#193D32",
+    color: "#183E32",
   },
-  showText: {
-    color: "#17765B",
-    fontWeight: "700",
+
+  showPasswordButton: {
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+  },
+
+  showPasswordText: {
+    color: "#155E49",
     fontSize: 13,
+    fontWeight: "700",
   },
-  button: {
+
+  loginButton: {
     backgroundColor: "#155E49",
     height: 55,
-    borderRadius: 15,
-    justifyContent: "center",
+    borderRadius: 14,
     alignItems: "center",
-    marginTop: 6,
+    justifyContent: "center",
   },
-  buttonText: {
+
+  loginButtonText: {
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "800",
   },
-  secureRow: {
-    alignItems: "center",
-    marginTop: 22,
+
+  disabledButton: {
+    opacity: 0.6,
   },
-  secureText: {
-    fontSize: 11,
-    color: "#8A9B91",
+
+  securityBox: {
+    backgroundColor: "#E8F1EA",
+    padding: 16,
+    borderRadius: 13,
+    marginTop: 23,
   },
-  footer: {
-    textAlign: "center",
-    marginTop: 35,
-    fontSize: 10,
-    letterSpacing: 1.5,
-    color: "#A2B1A6",
-    fontWeight: "700",
-  },
-  welcomeContainer: {
-    flex: 1,
-    justifyContent: "center",
-    padding: 28,
-  },
-  logo: {
-    fontSize: 24,
-    fontWeight: "800",
+
+  securityTitle: {
     color: "#155E49",
-  },
-  welcomeTitle: {
-    fontSize: 34,
+    fontSize: 13,
     fontWeight: "800",
-    color: "#183E32",
-    marginTop: 25,
+    marginBottom: 6,
   },
-  welcomeSubtitle: {
-    fontSize: 18,
-    color: "#60786B",
-    marginVertical: 20,
+
+  securityDescription: {
+    color: "#587365",
+    fontSize: 12,
+    lineHeight: 19,
+  },
+
+  footerSection: {
+    alignItems: "center",
+    marginTop: 30,
+  },
+
+  footerText: {
+    color: "#9BAC9F",
+    fontSize: 10,
+    letterSpacing: 0.8,
+    textAlign: "center",
+  },
+
+  footerSubtext: {
+    color: "#9BAC9F",
+    fontSize: 11,
+    marginTop: 8,
   },
 });

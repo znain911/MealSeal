@@ -1,114 +1,154 @@
 
-import DateTimePicker, {
-    DateTimePickerEvent,
-} from "@react-native-community/datetimepicker";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import {
-    ActivityIndicator,
-    Alert,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-
 import { API_BASE_URL } from "./config/api";
 import { auth } from "./config/firebase";
+
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+
+import { SafeAreaView } from "react-native-safe-area-context";
+
+type MealType = "Breakfast" | "Lunch" | "Dinner";
+
+type SignedVoucher = {
+  payload: {
+    version: number;
+    voucherId: string;
+    recipientRef: string;
+    restaurantId: string;
+    mealType: string;
+    quantity: number;
+    issuedAt: number;
+    expiresAt: number;
+    issuerUid: string;
+  };
+  signature: string;
+  algorithm: string;
+  keyId: string;
+};
+
+type CreateVoucherResponse = {
+  success: boolean;
+  message?: string;
+  voucherId?: string;
+  signedVoucher?: SignedVoucher;
+};
+
+const MEAL_TYPES: MealType[] = [
+  "Breakfast",
+  "Lunch",
+  "Dinner",
+];
+
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function isValidDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+
+  const [year, month, day] = value.split("-").map(Number);
+
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+
+  return (
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month - 1 &&
+    parsed.getUTCDate() === day
+  );
+}
 
 export default function CreateVoucherScreen() {
   const router = useRouter();
 
   const [recipientRef, setRecipientRef] = useState("");
   const [restaurantId, setRestaurantId] = useState("CAFE-01");
-  const [mealType, setMealType] = useState("Lunch");
+
+  const [mealType, setMealType] =
+    useState<MealType>("Lunch");
+
   const [quantity, setQuantity] = useState("1");
-  const [expiryDate, setExpiryDate] = useState<Date | null>(null);
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [creating, setCreating] = useState(false);
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const [expiryDate, setExpiryDate] = useState(
+    formatLocalDate(
+      new Date(Date.now() + 24 * 60 * 60 * 1000)
+    )
+  );
 
-  const formatDate = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  };
+  const [loading, setLoading] = useState(false);
 
-  const handleDateChange = (
-    event: DateTimePickerEvent,
-    selectedDate?: Date
-  ) => {
-    if (Platform.OS === "android") {
-      setShowDatePicker(false);
-    }
-
-    if (event.type === "dismissed") return;
-
-    if (selectedDate) {
-      setExpiryDate(selectedDate);
-    }
-  };
-
-  const handleContinue = async () => {
-    if (creating) return;
-
-    if (!recipientRef.trim()) {
-      Alert.alert("Missing details", "Enter a recipient reference.");
+  const handleCreateVoucher = async () => {
+    if (loading) {
       return;
     }
 
-    if (!restaurantId.trim()) {
-      Alert.alert("Missing details", "Enter a restaurant ID.");
-      return;
-    }
+    const recipient = recipientRef.trim();
+    const restaurant = restaurantId.trim();
+    const numericQuantity = Number(quantity);
 
-    const qty = Number(quantity);
-
-    if (!Number.isInteger(qty) || qty < 1 || qty > 20) {
+    if (!recipient) {
       Alert.alert(
-        "Invalid quantity",
-        "Enter a quantity between 1 and 20."
+        "Missing Information",
+        "Please enter the recipient reference."
       );
       return;
     }
 
-    if (!expiryDate) {
-      Alert.alert("Missing expiry date", "Select an expiry date.");
+    if (!restaurant) {
+      Alert.alert(
+        "Missing Information",
+        "Please enter the restaurant ID."
+      );
       return;
     }
 
-    const selectedDay = new Date(
-      expiryDate.getFullYear(),
-      expiryDate.getMonth(),
-      expiryDate.getDate()
-    );
-
-    const currentDay = new Date();
-    currentDay.setHours(0, 0, 0, 0);
-
-    if (selectedDay < currentDay) {
-      Alert.alert("Invalid date", "Select today or a future date.");
+    if (
+      !Number.isInteger(numericQuantity) ||
+      numericQuantity < 1 ||
+      numericQuantity > 20
+    ) {
+      Alert.alert(
+        "Invalid Quantity",
+        "Quantity must be a whole number between 1 and 20."
+      );
       return;
     }
 
-    setCreating(true);
+    if (!isValidDate(expiryDate.trim())) {
+      Alert.alert(
+        "Invalid Date",
+        "Please enter the expiry date in YYYY-MM-DD format."
+      );
+      return;
+    }
+
+    setLoading(true);
 
     try {
       const user = auth.currentUser;
 
       if (!user) {
-        Alert.alert("Session expired", "Please sign in again.");
-        return;
+        throw new Error("Please sign in again.");
       }
 
-      const idToken = await user.getIdToken();
+      const token = await user.getIdToken();
 
       const response = await fetch(
         `${API_BASE_URL}/vouchers/create`,
@@ -116,232 +156,243 @@ export default function CreateVoucherScreen() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${idToken}`,
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            recipientRef: recipientRef.trim(),
-            restaurantId: restaurantId.trim(),
+            recipientRef: recipient,
+            restaurantId: restaurant,
             mealType,
-            quantity: qty,
-            expiryDate: formatDate(expiryDate),
+            quantity: numericQuantity,
+            expiryDate: expiryDate.trim(),
           }),
         }
       );
 
-      const data = await response.json();
+      const responseText = await response.text();
 
-      if (!response.ok || !data.success) {
+      let result: CreateVoucherResponse;
+
+      try {
+        result = JSON.parse(responseText);
+      } catch {
         throw new Error(
-          data.message || "Unable to create voucher."
+          `Backend returned an invalid response (HTTP ${response.status}).`
         );
       }
 
       if (
-        !data.signedVoucher ||
-        !data.signedVoucher.payload ||
-        !data.signedVoucher.signature
+        !response.ok ||
+        !result.success ||
+        !result.signedVoucher
       ) {
         throw new Error(
-          "Voucher was created but signed QR data was not returned."
+          result.message || "Unable to create voucher."
         );
       }
 
-      // Navigate to the QR screen with the signed voucher.
-      router.push({
-        pathname: "./voucher-qr",
+      const signedVoucher = result.signedVoucher;
+
+      if (
+        !signedVoucher.payload?.voucherId ||
+        !signedVoucher.signature ||
+        !signedVoucher.algorithm ||
+        !signedVoucher.keyId
+      ) {
+        throw new Error(
+          "The backend created the voucher but returned incomplete signed data. Check the Admin Dashboard before trying again."
+        );
+      }
+
+      // IMPORTANT:
+      // Pass the complete signed voucher to the QR page.
+      router.replace({
+        pathname: "/voucher-qr",
         params: {
-          voucher: JSON.stringify(data.signedVoucher),
+          signedVoucher: JSON.stringify(signedVoucher),
+          voucherId: signedVoucher.payload.voucherId,
         },
       });
-
     } catch (error: any) {
-      console.error("Voucher creation error:", error);
+      console.error("Create voucher error:", error);
 
       Alert.alert(
-        "Voucher creation failed",
-        error?.message || "Please try again."
+        "Voucher Creation",
+        error?.message || "Unable to create voucher."
       );
     } finally {
-      setCreating(false);
+      setLoading(false);
     }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
+      <KeyboardAvoidingView
+        style={styles.keyboardContainer}
+        behavior={
+          Platform.OS === "ios" ? "padding" : "height"
+        }
       >
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.backButton}
-          >
-            <Text style={styles.backText}>← Back</Text>
-          </TouchableOpacity>
-          <Text style={styles.brand}>✦ MealSeal</Text>
-        </View>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.header}>
+            <Text style={styles.brand}>✦ MealSeal</Text>
 
-        <Text style={styles.heading}>Create Meal Voucher</Text>
-        <Text style={styles.subtitle}>
-          Enter the voucher details to create a
-          digitally signed meal voucher.
-        </Text>
-
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>
-            Recipient Details
-          </Text>
-
-          <Text style={styles.label}>
-            Recipient Reference *
-          </Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. REC-001"
-            placeholderTextColor="#9AA9A2"
-            value={recipientRef}
-            onChangeText={setRecipientRef}
-            autoCapitalize="characters"
-            editable={!creating}
-          />
-
-          <Text style={styles.sectionTitle}>Meal Details</Text>
-
-          <Text style={styles.label}>Restaurant ID *</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. CAFE-01"
-            placeholderTextColor="#9AA9A2"
-            value={restaurantId}
-            onChangeText={setRestaurantId}
-            autoCapitalize="characters"
-            editable={!creating}
-          />
-
-          <Text style={styles.label}>Meal Type *</Text>
-          <View style={styles.mealRow}>
-            {["Breakfast", "Lunch", "Dinner"].map((type) => (
-              <TouchableOpacity
-                key={type}
-                style={[
-                  styles.mealOption,
-                  mealType === type && styles.mealSelected,
-                ]}
-                onPress={() => setMealType(type)}
-                disabled={creating}
-              >
-                <Text
-                  style={[
-                    styles.mealText,
-                    mealType === type && styles.mealTextSelected,
-                  ]}
-                >
-                  {type}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            <TouchableOpacity
+              onPress={() => router.replace("/admin")}
+              disabled={loading}
+            >
+              <Text style={styles.backLink}>Dashboard</Text>
+            </TouchableOpacity>
           </View>
 
-          <Text style={styles.label}>Number of Meals *</Text>
-          <TextInput
-            style={styles.input}
-            value={quantity}
-            onChangeText={setQuantity}
-            keyboardType="number-pad"
-            placeholder="1"
-            placeholderTextColor="#9AA9A2"
-            editable={!creating}
-          />
-
-          <Text style={styles.sectionTitle}>Voucher Validity</Text>
-          <Text style={styles.label}>Expiry Date *</Text>
-
-          <TouchableOpacity
-            style={styles.dateInput}
-            onPress={() => setShowDatePicker(true)}
-            activeOpacity={0.7}
-            disabled={creating}
-          >
-            <Text
-              style={[
-                styles.dateText,
-                !expiryDate && styles.placeholderText,
-              ]}
-            >
-              {expiryDate
-                ? formatDate(expiryDate)
-                : "Select expiry date"}
+          <View style={styles.titleSection}>
+            <Text style={styles.pageLabel}>
+              CHARITY ADMINISTRATION
             </Text>
-            <Text style={styles.calendarIcon}>📅</Text>
-          </TouchableOpacity>
 
-          {showDatePicker && (
-            <View style={styles.pickerContainer}>
-              <DateTimePicker
-                value={expiryDate || new Date()}
-                mode="date"
-                display={
-                  Platform.OS === "ios" ? "inline" : "calendar"
-                }
-                minimumDate={today}
-                onChange={handleDateChange}
-              />
+            <Text style={styles.pageTitle}>
+              Create Meal Voucher
+            </Text>
 
-              {Platform.OS === "ios" && (
+            <Text style={styles.pageDescription}>
+              Enter the recipient and meal information.
+              MealSeal will generate a digitally signed
+              voucher and a shareable QR code.
+            </Text>
+          </View>
+
+          <View style={styles.formCard}>
+            <Text style={styles.fieldLabel}>
+              Recipient Reference
+            </Text>
+
+            <TextInput
+              style={styles.input}
+              value={recipientRef}
+              onChangeText={setRecipientRef}
+              placeholder="e.g. REC-001"
+              placeholderTextColor="#9BAC9F"
+              autoCapitalize="characters"
+              editable={!loading}
+            />
+
+            <Text style={styles.fieldLabel}>
+              Restaurant ID
+            </Text>
+
+            <TextInput
+              style={styles.input}
+              value={restaurantId}
+              onChangeText={setRestaurantId}
+              placeholder="e.g. CAFE-01"
+              placeholderTextColor="#9BAC9F"
+              autoCapitalize="characters"
+              editable={!loading}
+            />
+
+            <Text style={styles.fieldLabel}>
+              Meal Type
+            </Text>
+
+            <View style={styles.mealRow}>
+              {MEAL_TYPES.map((meal) => (
                 <TouchableOpacity
-                  style={styles.doneButton}
-                  onPress={() => setShowDatePicker(false)}
+                  key={meal}
+                  style={[
+                    styles.mealOption,
+                    mealType === meal &&
+                      styles.mealOptionSelected,
+                  ]}
+                  onPress={() => setMealType(meal)}
+                  disabled={loading}
                 >
-                  <Text style={styles.doneText}>Done</Text>
+                  <Text
+                    style={[
+                      styles.mealOptionText,
+                      mealType === meal &&
+                        styles.mealOptionTextSelected,
+                    ]}
+                  >
+                    {meal}
+                  </Text>
                 </TouchableOpacity>
-              )}
+              ))}
             </View>
-          )}
 
-          <Text style={styles.helper}>
-            Select today or a future date.
-          </Text>
-        </View>
-
-        <View style={styles.securityCard}>
-          <Text style={styles.securityTitle}>
-            🔒 Digital Signature Protection
-          </Text>
-          <Text style={styles.securityDescription}>
-            MealSeal uses ECDSA P-256 and SHA-256
-            to protect voucher authenticity and integrity.
-            Digital signing is performed by the trusted
-            Node.js backend.
-          </Text>
-        </View>
-
-        <TouchableOpacity
-          style={[
-            styles.createButton,
-            creating && styles.disabledButton,
-          ]}
-          onPress={handleContinue}
-          disabled={creating}
-        >
-          {creating ? (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator size="small" color="#FFFFFF" />
-              <Text style={styles.createButtonText}>
-                Creating & Signing...
-              </Text>
-            </View>
-          ) : (
-            <Text style={styles.createButtonText}>
-              Create & Sign Voucher →
+            <Text style={styles.fieldLabel}>
+              Quantity
             </Text>
-          )}
-        </TouchableOpacity>
 
-        <Text style={styles.footer}>
-          MEALSEAL • SECURE VOUCHER PLATFORM
-        </Text>
-      </ScrollView>
+            <TextInput
+              style={styles.input}
+              value={quantity}
+              onChangeText={setQuantity}
+              keyboardType="number-pad"
+              placeholder="1"
+              placeholderTextColor="#9BAC9F"
+              editable={!loading}
+            />
+
+            <Text style={styles.fieldLabel}>
+              Expiry Date
+            </Text>
+
+            <TextInput
+              style={styles.input}
+              value={expiryDate}
+              onChangeText={setExpiryDate}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor="#9BAC9F"
+              keyboardType="numbers-and-punctuation"
+              editable={!loading}
+            />
+
+            <Text style={styles.helperText}>
+              Format: YYYY-MM-DD. The backend uses
+              midnight UTC after the selected date
+              as the expiry time.
+            </Text>
+
+            <TouchableOpacity
+              style={[
+                styles.createButton,
+                loading && styles.disabledButton,
+              ]}
+              disabled={loading}
+              onPress={() => void handleCreateVoucher()}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.createButtonText}>
+                  Generate Signed Voucher
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.securityCard}>
+            <Text style={styles.securityTitle}>
+              Digital Signature Protection
+            </Text>
+
+            <Text style={styles.securityText}>
+              Vouchers are signed by the MealSeal
+              backend using ECDSA P-256 with SHA-256.
+              The private signing key stays on the
+              server and is never included in the QR.
+            </Text>
+          </View>
+
+          <Text style={styles.footer}>
+            MEALSEAL • SECURE MEAL VOUCHER PLATFORM
+          </Text>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -351,186 +402,165 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F4F7F1",
   },
+
+  keyboardContainer: {
+    flex: 1,
+  },
+
   content: {
     padding: 22,
     paddingBottom: 45,
   },
+
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 28,
+    marginBottom: 25,
   },
-  backButton: {
-    backgroundColor: "#E3EEE6",
-    paddingHorizontal: 16,
-    paddingVertical: 11,
-    borderRadius: 12,
-  },
-  backText: {
+
+  brand: {
     color: "#155E49",
+    fontSize: 25,
+    fontWeight: "800",
+  },
+
+  backLink: {
+    color: "#155E49",
+    fontSize: 14,
     fontWeight: "700",
   },
-  brand: {
-    fontSize: 21,
-    fontWeight: "800",
-    color: "#155E49",
-  },
-  heading: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: "#183E32",
-    marginBottom: 10,
-  },
-  subtitle: {
-    color: "#73877B",
-    fontSize: 14,
-    lineHeight: 22,
+
+  titleSection: {
     marginBottom: 24,
   },
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 22,
-    padding: 22,
-    borderWidth: 1,
-    borderColor: "#E4ECE5",
-    marginBottom: 18,
-  },
-  sectionTitle: {
-    fontSize: 17,
+
+  pageLabel: {
+    fontSize: 11,
+    color: "#638675",
     fontWeight: "800",
-    color: "#155E49",
-    marginTop: 8,
-    marginBottom: 18,
+    letterSpacing: 1.2,
   },
-  label: {
+
+  pageTitle: {
+    color: "#183E32",
+    fontSize: 27,
+    fontWeight: "800",
+    marginTop: 10,
+  },
+
+  pageDescription: {
+    color: "#74877B",
+    fontSize: 13,
+    lineHeight: 21,
+    marginTop: 10,
+  },
+
+  formCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "#E5ECE6",
+  },
+
+  fieldLabel: {
     fontSize: 13,
     fontWeight: "700",
     color: "#304E42",
     marginBottom: 9,
   },
+
   input: {
-    height: 54,
-    borderRadius: 13,
-    backgroundColor: "#F7F9F6",
     borderWidth: 1,
-    borderColor: "#E1E9E1",
-    paddingHorizontal: 15,
-    color: "#193D32",
+    borderColor: "#DDE7DF",
+    backgroundColor: "#FAFCFA",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    height: 52,
     fontSize: 15,
+    color: "#183E32",
     marginBottom: 20,
   },
+
   mealRow: {
     flexDirection: "row",
     gap: 8,
     marginBottom: 22,
   },
+
   mealOption: {
     flex: 1,
-    paddingVertical: 13,
-    borderRadius: 11,
     borderWidth: 1,
-    borderColor: "#DDE8DF",
+    borderColor: "#DDE7DF",
+    borderRadius: 11,
+    paddingVertical: 13,
     alignItems: "center",
   },
-  mealSelected: {
+
+  mealOptionSelected: {
     backgroundColor: "#155E49",
     borderColor: "#155E49",
   },
-  mealText: {
+
+  mealOptionText: {
     fontSize: 12,
-    fontWeight: "700",
     color: "#587365",
-  },
-  mealTextSelected: {
-    color: "#FFFFFF",
-  },
-  dateInput: {
-    height: 54,
-    borderRadius: 13,
-    backgroundColor: "#F7F9F6",
-    borderWidth: 1,
-    borderColor: "#E1E9E1",
-    paddingHorizontal: 15,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  dateText: {
-    color: "#193D32",
-    fontSize: 15,
-  },
-  placeholderText: {
-    color: "#9AA9A2",
-  },
-  calendarIcon: {
-    fontSize: 21,
-  },
-  pickerContainer: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    marginBottom: 15,
-    overflow: "hidden",
-  },
-  doneButton: {
-    alignSelf: "flex-end",
-    backgroundColor: "#155E49",
-    paddingHorizontal: 24,
-    paddingVertical: 11,
-    borderRadius: 10,
-    marginTop: 10,
-  },
-  doneText: {
-    color: "#FFFFFF",
     fontWeight: "700",
   },
-  helper: {
-    color: "#839589",
-    fontSize: 12,
-    lineHeight: 18,
+
+  mealOptionTextSelected: {
+    color: "#FFFFFF",
   },
-  securityCard: {
-    backgroundColor: "#E8F1EA",
-    borderRadius: 17,
-    padding: 20,
-    marginBottom: 22,
+
+  helperText: {
+    color: "#87998D",
+    fontSize: 11,
+    lineHeight: 17,
+    marginTop: -10,
+    marginBottom: 20,
   },
-  securityTitle: {
-    color: "#155E49",
-    fontWeight: "800",
-    fontSize: 15,
-    marginBottom: 9,
-  },
-  securityDescription: {
-    color: "#587365",
-    fontSize: 13,
-    lineHeight: 21,
-  },
+
   createButton: {
     backgroundColor: "#155E49",
-    borderRadius: 15,
-    paddingVertical: 19,
+    borderRadius: 14,
+    padding: 17,
     alignItems: "center",
-    justifyContent: "center",
-    minHeight: 58,
   },
-  disabledButton: {
-    opacity: 0.65,
-  },
-  loadingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
+
   createButtonText: {
     color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "800",
   },
+
+  disabledButton: {
+    opacity: 0.5,
+  },
+
+  securityCard: {
+    backgroundColor: "#E8F1EA",
+    borderRadius: 15,
+    padding: 19,
+    marginTop: 22,
+  },
+
+  securityTitle: {
+    color: "#155E49",
+    fontSize: 15,
+    fontWeight: "800",
+    marginBottom: 9,
+  },
+
+  securityText: {
+    color: "#587365",
+    fontSize: 12,
+    lineHeight: 20,
+  },
+
   footer: {
-    textAlign: "center",
     color: "#9BAC9F",
+    textAlign: "center",
     fontSize: 10,
     letterSpacing: 1,
     marginTop: 30,
