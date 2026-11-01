@@ -75,15 +75,15 @@ const styles = StyleSheet.create({
 const variantStyles = StyleSheet.create({
   primary: { backgroundColor: Colors.light.primary },
   secondary: { backgroundColor: Colors.light.surface, borderWidth: 1, borderColor: Colors.light.borderStrong },
-  destructive: { backgroundColor: Colors.light.surface, borderWidth: 1, borderColor: "#A3312A" },
-  destructiveSolid: { backgroundColor: "#A3312A" },
+  destructive: { backgroundColor: Colors.light.surface, borderWidth: 1, borderColor: Colors.light.danger },
+  destructiveSolid: { backgroundColor: Colors.light.danger },
   ghost: { backgroundColor: "transparent" },
 });
 
 const labelStyles = StyleSheet.create({
   primary: { color: "#FFFFFF" },
   secondary: { color: Colors.light.primary },
-  destructive: { color: "#A3312A" },
+  destructive: { color: Colors.light.danger },
   destructiveSolid: { color: "#FFFFFF" },
   ghost: { color: Colors.light.primary },
 });
@@ -91,7 +91,7 @@ const labelStyles = StyleSheet.create({
 const spinnerColor: Record<ButtonVariant, string> = {
   primary: "#FFFFFF",
   secondary: Colors.light.primary,
-  destructive: "#A3312A",
+  destructive: Colors.light.danger,
   destructiveSolid: "#FFFFFF",
   ghost: Colors.light.primary,
 };

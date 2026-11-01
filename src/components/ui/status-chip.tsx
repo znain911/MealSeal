@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 
 import { StatusToken } from "@/constants/status";
-import { Radius, Spacing } from "@/constants/theme";
+import { FontFamily, Radius, Spacing } from "@/constants/theme";
 
 import { Icon } from "./icon";
 import { IconName } from "@/constants/icons";
@@ -38,7 +38,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    borderRadius: Radius.full,
+    borderRadius: Radius.chip,
     alignSelf: "flex-start",
   },
   chipMedium: {
@@ -54,6 +54,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     fontWeight: "700",
+    fontFamily: FontFamily.bodyBold,
   },
   labelSmall: {
     fontSize: 12,

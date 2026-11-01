@@ -26,7 +26,7 @@ export default function StaffDashboard() {
   );
 
   const handleSignOutPress = () => {
-    void authSignOut().then(() => router.replace("/sign-in"));
+    void authSignOut().then(() => router.replace("/landing"));
   };
 
   return (

@@ -8,6 +8,7 @@ import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { StatusChip } from "@/components/ui/status-chip";
+import { cafeName } from "@/constants/cafes";
 import { StatusTokens, voucherStatusToken } from "@/constants/status";
 import { Colors, Radius, Spacing, Type } from "@/constants/theme";
 import { fetchVoucher, formatDate, formatDateTime, revokeVoucher, Voucher } from "@/lib/vouchers";
@@ -129,7 +130,7 @@ export default function VoucherDetailsScreen() {
           <StatusChip token={token} label={label} />
           <Text style={styles.voucherId}>{voucher.voucherId}</Text>
           <Text style={styles.voucherSubtitle}>
-            {voucher.quantity} × {voucher.mealType} at {voucher.restaurantId}
+            {voucher.quantity} × {voucher.mealType} at {cafeName(voucher.restaurantId)}
           </Text>
         </View>
 
@@ -166,14 +167,14 @@ export default function VoucherDetailsScreen() {
 
       {canRevoke ? (
         <View style={styles.footer}>
-          <Button label="Revoke voucher" variant="destructive" icon={<Icon name="stop" size={20} color="#A3312A" />} onPress={() => setSheetVisible(true)} />
+          <Button label="Revoke voucher" variant="destructive" icon={<Icon name="stop" size={20} color={Colors.light.danger} />} onPress={() => setSheetVisible(true)} />
           <Text style={styles.footerHint}>Revoking stops this code working at any café straight away.</Text>
         </View>
       ) : null}
 
       <BottomSheet visible={sheetVisible} onClose={() => setSheetVisible(false)}>
         <View style={styles.sheetIcon}>
-          <Icon name="stop" size={28} color="#A3312A" />
+          <Icon name="stop" size={28} color={Colors.light.danger} />
         </View>
         <Text style={styles.sheetTitle}>Revoke this voucher?</Text>
         <Text style={styles.sheetBody}>

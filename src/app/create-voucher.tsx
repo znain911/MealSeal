@@ -18,6 +18,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Icon } from "@/components/ui/icon";
 import { Colors, Radius, Spacing, Type } from "@/constants/theme";
+import { CAFE_OPTIONS } from "@/constants/cafes";
 import { getAccessToken } from "@/lib/auth-client";
 import { parseJsonResponse } from "@/lib/api";
 
@@ -27,15 +28,6 @@ type MealType = "Breakfast" | "Lunch" | "Dinner";
 type Step = "form" | "review";
 
 const MEAL_TYPES: MealType[] = ["Breakfast", "Lunch", "Dinner"];
-
-// Static for now — there's no café-management endpoint yet, only a free-text restaurantId on
-// each account/voucher. CAFE-01 matches the seeded staff account so a freshly set-up backend has
-// at least one café that can actually redeem a voucher end to end.
-const CAFE_OPTIONS = [
-  { id: "CAFE-01", name: "Hillside Café" },
-  { id: "CAFE-02", name: "Riverside Kitchen" },
-  { id: "CAFE-03", name: "The Corner Cup" },
-];
 
 // Computed once at module load, not during render — a sensible default expiry (today + 7 days).
 const DEFAULT_EXPIRY_DATE = formatLocalDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
@@ -278,7 +270,7 @@ export default function CreateVoucherScreen() {
               </View>
 
               <View style={styles.trustBanner}>
-                <Icon name="seal" size={22} color="#1D6B47" />
+                <Icon name="seal" size={22} color={Colors.light.primaryPressed} />
                 <Text style={styles.trustBannerText}>
                   When you confirm, MealSeal digitally signs this voucher. It can be redeemed once,
                   only at {selectedCafe.name}, until {formatDisplayDate(expiryDate)}.
@@ -502,14 +494,14 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     padding: Spacing.lg,
     borderRadius: Radius.md,
-    backgroundColor: "#E3F1E7",
+    backgroundColor: Colors.light.primarySubtle,
   },
   trustBannerText: {
     flex: 1,
     fontSize: 14,
     lineHeight: 20,
     fontWeight: "600",
-    color: "#1D6B47",
+    color: Colors.light.primaryPressed,
   },
   footer: {
     padding: Spacing.lg,

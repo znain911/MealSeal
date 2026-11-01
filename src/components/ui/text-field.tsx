@@ -50,7 +50,7 @@ const styles = StyleSheet.create({
     color: Colors.light.ink,
   },
   inputError: {
-    borderColor: "#A3312A",
+    borderColor: Colors.light.danger,
     borderWidth: 2,
   },
   helper: {
@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
   error: {
     fontSize: 14,
     lineHeight: 20,
-    color: "#A3312A",
+    color: Colors.light.danger,
     fontWeight: "600",
   },
 });

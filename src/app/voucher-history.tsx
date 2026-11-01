@@ -16,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { BottomTabBar } from "@/components/ui/bottom-tab-bar";
 import { Icon } from "@/components/ui/icon";
 import { StatusChip } from "@/components/ui/status-chip";
+import { cafeName } from "@/constants/cafes";
 import { voucherStatusToken } from "@/constants/status";
 import { Colors, Radius, Spacing, Type } from "@/constants/theme";
 import { fetchVouchers, Voucher } from "@/lib/vouchers";
@@ -153,7 +154,7 @@ export default function VoucherHistoryScreen() {
                   <View style={styles.rowText}>
                     <Text style={styles.rowTitle}>{voucher.voucherId}</Text>
                     <Text style={styles.rowSubtitle}>
-                      {voucher.mealType} · {voucher.restaurantId}
+                      {voucher.mealType} · {cafeName(voucher.restaurantId)}
                     </Text>
                   </View>
                   <StatusChip token={token} label={label} size="sm" />
@@ -236,7 +237,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xl,
   },
   errorText: {
-    color: "#A3312A",
+    color: Colors.light.danger,
     fontSize: 16,
     textAlign: "center",
     marginTop: Spacing.xl,

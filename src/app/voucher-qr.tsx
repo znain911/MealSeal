@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Icon } from "@/components/ui/icon";
 import { StatusChip } from "@/components/ui/status-chip";
+import { cafeName } from "@/constants/cafes";
 import { StatusTokens } from "@/constants/status";
 import { Colors, Radius, Spacing, Type } from "@/constants/theme";
 import { getAccessToken } from "@/lib/auth-client";
@@ -216,14 +217,14 @@ export default function VoucherQRScreen() {
 
       const html = `
         <html>
-          <body style="font-family: -apple-system, Roboto, sans-serif; text-align: center; padding: 32px; color: #2B2622;">
-            <h1 style="color: #1F5C46;">MealSeal</h1>
-            <p style="color: #5E554B;">Secure meal voucher</p>
+          <body style="font-family: 'DM Sans', -apple-system, Roboto, sans-serif; text-align: center; padding: 32px; color: #3A2212; background: #FFF7E8;">
+            <h1 style="font-family: 'Bricolage Grotesque', -apple-system, sans-serif; color: #C2410C;">MealSeal</h1>
+            <p style="color: #6B4A33;">Secure meal voucher</p>
             <img src="data:image/png;base64,${qrDataUrl}" width="220" height="220" />
             <h2>${payload.voucherId}</h2>
-            <p>${payload.quantity} × ${payload.mealType} · ${payload.restaurantId}</p>
+            <p>${payload.quantity} × ${payload.mealType} · ${cafeName(payload.restaurantId)}</p>
             <p>Valid until ${formatDate(payload.expiresAt)}</p>
-            <p style="color: #776D62; font-size: 12px; margin-top: 24px;">
+            <p style="color: #8A6F56; font-size: 12px; margin-top: 24px;">
               Present this QR code at the assigned café. Each voucher can only be redeemed once.
             </p>
           </body>
@@ -295,14 +296,14 @@ export default function VoucherQRScreen() {
             value={qrData}
             size={200}
             ecl="L"
-            color="#2B2622"
+            color="#3A2212"
             backgroundColor="#FFFFFF"
           />
 
           <View style={styles.cardText}>
             <Text style={styles.cardTitle}>{payload.voucherId}</Text>
             <Text style={styles.cardSubtitle}>
-              {payload.quantity} × {payload.mealType} · {payload.restaurantId}
+              {payload.quantity} × {payload.mealType} · {cafeName(payload.restaurantId)}
             </Text>
             <Text style={styles.cardSubtitle}>Valid until {formatDate(payload.expiresAt)}</Text>
           </View>
@@ -405,7 +406,7 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
     alignItems: "center",
     gap: Spacing.lg,
-    ...{ shadowColor: "#2B2622", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 2 },
+    ...{ shadowColor: "#3A2212", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 2 },
   },
   cardText: {
     alignItems: "center",

@@ -17,6 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { BottomTabBar } from "@/components/ui/bottom-tab-bar";
 import { Icon } from "@/components/ui/icon";
 import { StatusChip } from "@/components/ui/status-chip";
+import { cafeName } from "@/constants/cafes";
 import { StatusTokens, voucherStatusToken } from "@/constants/status";
 import { Colors, Radius, Spacing, Type } from "@/constants/theme";
 import { signOut as authSignOut, getCurrentUser } from "@/lib/auth-client";
@@ -95,7 +96,7 @@ export default function AdminDashboard() {
         text: "Sign out",
         style: "destructive",
         onPress: () => {
-          void authSignOut().then(() => router.replace("/sign-in"));
+          void authSignOut().then(() => router.replace("/landing"));
         },
       },
     ]);
@@ -215,7 +216,7 @@ export default function AdminDashboard() {
                   <View style={styles.listRowText}>
                     <Text style={styles.listRowTitle}>{voucher.voucherId}</Text>
                     <Text style={styles.listRowSubtitle}>
-                      {voucher.mealType} · {voucher.restaurantId}
+                      {voucher.mealType} · {cafeName(voucher.restaurantId)}
                     </Text>
                   </View>
                   <StatusChip token={token} label={label} size="sm" />

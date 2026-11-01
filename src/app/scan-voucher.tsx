@@ -16,6 +16,7 @@ import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { StatusChip } from "@/components/ui/status-chip";
+import { cafeName } from "@/constants/cafes";
 import { IconName } from "@/constants/icons";
 import { NetworkRejection, RejectionDetail, RejectionDetails, StatusTokens } from "@/constants/status";
 import { Colors, Radius, Spacing, Type } from "@/constants/theme";
@@ -419,7 +420,7 @@ export default function ScanVoucherScreen() {
             chipToken={StatusTokens.verified}
             chipLabel="Voucher verified"
             title="Ready to redeem"
-            body={`This voucher is genuine, unused and assigned to ${signedVoucher.payload.restaurantId}.`}
+            body={`This voucher is genuine, unused and assigned to ${cafeName(signedVoucher.payload.restaurantId)}.`}
             details={[
               { k: "Voucher", v: signedVoucher.payload.voucherId },
               { k: "Meal", v: `${signedVoucher.payload.quantity} × ${signedVoucher.payload.mealType}` },
@@ -455,7 +456,7 @@ export default function ScanVoucherScreen() {
               signedVoucher
                 ? [
                     { k: "Voucher", v: signedVoucher.payload.voucherId },
-                    { k: "Assigned café", v: signedVoucher.payload.restaurantId },
+                    { k: "Assigned café", v: cafeName(signedVoucher.payload.restaurantId) },
                   ]
                 : undefined
             }
@@ -601,7 +602,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     width: 48,
     height: 48,
-    borderColor: "#8FD1AE",
+    borderColor: "#F2A413",
   },
   cornerTL: { left: 0, top: 0, borderLeftWidth: 4, borderTopWidth: 4, borderTopLeftRadius: 20 },
   cornerTR: { right: 0, top: 0, borderRightWidth: 4, borderTopWidth: 4, borderTopRightRadius: 20 },

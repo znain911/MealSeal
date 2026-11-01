@@ -161,7 +161,7 @@ export default function SignInScreen() {
           </TouchableOpacity>
 
           <View style={styles.infoBanner}>
-            <Icon name="info" size={20} color="#2F5A7A" />
+            <Icon name="info" size={20} color={Colors.light.inkSecondary} />
             <Text style={styles.infoText}>
               We’ll take you straight to your charity or café tools after you sign in.
             </Text>
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     padding: Spacing.lg,
     borderRadius: Radius.md,
-    backgroundColor: "#E6EFF5",
+    backgroundColor: Colors.light.surfaceSunken,
     alignItems: "flex-start",
   },
   infoText: {
@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     fontWeight: "600",
-    color: "#2F5A7A",
+    color: Colors.light.inkSecondary,
   },
   footer: {
     textAlign: "center",
