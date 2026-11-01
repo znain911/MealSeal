@@ -1,119 +1,88 @@
 # MealSeal — Secure Digital Meal Voucher System
 
-MealSeal is a React Native application that creates digitally signed meal vouchers using **ECDSA P-256 and SHA-256**. It uses Firebase for authentication and Firestore storage, with a Node.js backend for secure voucher signing.
+MealSeal is a React Native (Expo) app for issuing and redeeming secure charity meal vouchers. It uses **ECDSA P-256 with SHA-256** digital signatures, **Firebase Authentication**, **Cloud Firestore**, and a **Node.js/Express** backend.
+
+## How MealSeal works
+
+1. A **Charity Admin** signs in, chooses a recipient reference, restaurant, meal type, quantity, and expiry date.
+2. The backend creates a voucher, digitally signs its details, and saves it in Firestore. The admin can display and share the voucher as a QR image.
+3. **Restaurant Staff** sign in and scan the QR code. The backend checks its digital signature, expiry, assigned restaurant, and redemption status.
+4. Staff review the voucher details and select **Redeem Voucher**. Firestore records the redemption, preventing the same voucher from being redeemed again.
 
 ## Requirements
 
 - Node.js and npm
 - Git
-- Expo Go (Android)
-- Firebase project with Authentication and Firestore enabled
+- Android phone with **Expo Go**
+- Firebase project with **Email/Password Authentication** and **Cloud Firestore** enabled
+- Laptop and phone on the same Wi-Fi network
 
-## 1. Clone and Install
+## Install on a laptop
+
+### 1. Clone and install dependencies
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/MealSeal.git
+git clone https://github.com/znain911/MealSeal.git
 cd MealSeal
 npm install
-```
-
-Install backend dependencies:
-
-```bash
 cd backend
 npm install
 ```
 
-## 2. Firebase Setup
+### 2. Configure Firebase
 
-1. Enable Email/Password Authentication and Cloud Firestore in Firebase.
-2. Configure the Firebase project in `src/app/config/firebase.ts`.
-3. Download the Firebase Admin SDK service account key from **Firebase Console → Project Settings → Service Accounts**.
-4. Save the key as `backend/serviceAccountKey.json`.
+- Set your Firebase client configuration in `src/app/config/firebase.ts`.
+- In Firebase Console, create a service account key under **Project Settings → Service Accounts** and save it as `backend/serviceAccountKey.json`.
+- Create users in Firebase Authentication and matching Firestore documents at `users/{uid}`. Set `active: true` and a role of `CHARITY_ADMIN` or `RESTAURANT_STAFF`. Staff accounts also need a matching `restaurantId` (for example, `CAFE-01`).
 
-The backend and mobile app must use the same Firebase project.
+### 3. Configure signing keys
 
-**Important:** Never upload the service account key to GitHub.
-
-## 3. Generate Signing Keys
-
-Inside the `backend` folder, run:
+From the `backend` folder, run:
 
 ```bash
 node generateKeys.js
 ```
 
-This creates:
+This creates `keys/private.pem` for signing and `keys/public.pem` for verification. **If connecting to an existing backend, retain its original keys** so existing vouchers remain verifiable.
 
-- `keys/private.pem` — used to sign vouchers.
-- `keys/public.pem` — used to verify signatures.
+### 4. Set the backend address
 
-If using an existing shared backend, use its existing keys rather than generating new ones.
-
-## 4. Configure Backend URL
-
-Find your computer's IPv4 address:
+On Windows, find your laptop's IPv4 address:
 
 ```powershell
 ipconfig
 ```
 
-Update `src/app/config/api.ts`:
+Edit `src/app/config/api.ts`:
 
 ```typescript
-export const API_BASE_URL = "http://YOUR_COMPUTER_IP:3000";
+export const API_BASE_URL = "http://YOUR_LAPTOP_IP:3000";
 ```
 
-Replace `YOUR_COMPUTER_IP` with your computer's actual IPv4 address.
+### 5. Start both servers
 
-## 5. Run the Project
+Open two terminals from the project folder.
 
-**Both servers must run simultaneously.**
-
-**Terminal 1 — Backend**
+**Terminal 1 — Backend:**
 
 ```bash
 cd backend
 node server.js
 ```
 
-**Terminal 2 — Expo**
-
-From the main `MealSeal` folder:
+**Terminal 2 — Mobile app:**
 
 ```bash
 npx expo start
 ```
 
-Scan the Expo QR code using Expo Go on your Android phone.
+Open **Expo Go** on your Android phone and scan the QR code shown in the terminal. Ensure the phone and laptop are on the same Wi-Fi network.
 
-Make sure your phone and computer are connected to the same Wi-Fi network.
+To check the backend, open `http://YOUR_LAPTOP_IP:3000/health` in your phone's browser.
 
-## 6. Test Backend Connection
+## Security notes
 
-Open this URL on your phone:
-
-```text
-http://YOUR_COMPUTER_IP:3000/health
-```
-
-Expected response:
-
-```json
-{
-  "success": true,
-  "application": "MealSeal",
-  "backend": "running",
-  "firebase": "connected",
-  "firestore": "connected"
-}
-```
-
-## Important Notes
-
-- Keep the Node.js backend and Expo running together.
-- Firebase user accounts and corresponding Firestore `users/{uid}` role documents must exist before login.
-- Never upload `serviceAccountKey.json` or `keys/private.pem` to GitHub.
-- The private signing key must remain on the backend.
-- The current application supports voucher creation, digital signing, and QR generation. Restaurant scanning and redemption are still under development.
-- Local HTTP is for development only; production use requires HTTPS.
+- Never commit `backend/serviceAccountKey.json`, `backend/keys/private.pem`, or `.env` files to GitHub.
+- The signing private key stays on the backend; the app never signs vouchers itself.
+- Scanning only verifies a voucher. Redemption requires a separate staff-authorized action.
+- Local HTTP is for development; use HTTPS for production deployment.
