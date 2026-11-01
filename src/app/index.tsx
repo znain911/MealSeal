@@ -25,7 +25,7 @@ export default function SplashScreen() {
 
       if (cancelled) return;
 
-      router.replace(onboarded ? "/sign-in" : "/onboarding");
+      router.replace(onboarded ? "/landing" : "/onboarding");
     };
 
     const timer = setTimeout(() => {

@@ -79,6 +79,16 @@ export default function SignInScreen() {
           keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
           showsVerticalScrollIndicator={false}
         >
+          {router.canGoBack() ? (
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => router.back()}
+              accessibilityLabel="Back"
+            >
+              <Icon name="chevronLeft" size={24} color={Colors.light.ink} />
+            </TouchableOpacity>
+          ) : null}
+
           <View style={styles.seal}>
             <Icon name="seal" size={30} color="#FFFFFF" />
           </View>
@@ -176,6 +186,14 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     paddingTop: Spacing["2xl"],
     gap: Spacing.xl,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: -Spacing.lg,
+    marginBottom: -Spacing.md,
   },
   seal: {
     width: 56,

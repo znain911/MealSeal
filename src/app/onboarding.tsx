@@ -61,7 +61,7 @@ export default function OnboardingScreen() {
       // Non-fatal — worst case onboarding shows again next launch.
     }
 
-    router.replace("/sign-in");
+    router.replace("/landing");
   };
 
   const isLast = step === STEPS.length - 1;
