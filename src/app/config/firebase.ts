@@ -5,8 +5,9 @@ import {
     getAuth,
     initializeAuth,
 } from "firebase/auth";
+import { Platform } from "react-native";
 
-// Firebase 13 React Native persistence export
+// Firebase 13 React Native persistence export — not available on web.
 // @ts-expect-error React Native export is not exposed in the default TypeScript declarations
 import { getReactNativePersistence } from "firebase/auth";
 
@@ -25,15 +26,21 @@ const app = getApps().length === 0
 
 let authInstance;
 
-try {
-  authInstance = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage),
-  });
-} catch (error: any) {
-  if (error.code === "auth/already-initialized") {
-    authInstance = getAuth(app);
-  } else {
-    throw error;
+if (Platform.OS === "web") {
+  // The React Native AsyncStorage persistence layer doesn't exist on web —
+  // fall back to the SDK's own browser persistence.
+  authInstance = getAuth(app);
+} else {
+  try {
+    authInstance = initializeAuth(app, {
+      persistence: getReactNativePersistence(AsyncStorage),
+    });
+  } catch (error: any) {
+    if (error.code === "auth/already-initialized") {
+      authInstance = getAuth(app);
+    } else {
+      throw error;
+    }
   }
 }
 

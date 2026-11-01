@@ -1,4 +1,3 @@
-
 import {
   DefaultTheme,
   Stack,
@@ -10,9 +9,13 @@ export default function RootLayout() {
     <ThemeProvider value={DefaultTheme}>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
+        <Stack.Screen name="onboarding" />
+        <Stack.Screen name="sign-in" />
         <Stack.Screen name="admin" />
         <Stack.Screen name="create-voucher" />
         <Stack.Screen name="voucher-qr" />
+        <Stack.Screen name="voucher-history" />
+        <Stack.Screen name="voucher-details" />
         <Stack.Screen name="staff" />
         <Stack.Screen name="scan-voucher" />
       </Stack>
