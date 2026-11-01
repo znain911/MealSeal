@@ -1,7 +1,6 @@
 
 import { useRouter } from "expo-router";
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
 import { useState } from "react";
 
 import {
@@ -19,7 +18,15 @@ import {
 } from "react-native";
 
 import { SafeAreaView } from "react-native-safe-area-context";
-import { auth, db } from "./config/firebase";
+import { API_BASE_URL } from "./config/api";
+import { auth } from "./config/firebase";
+
+type ApiProfile = {
+  success?: boolean;
+  role?: string;
+  restaurantId?: string | null;
+  message?: string;
+};
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -52,37 +59,45 @@ export default function LoginScreen() {
         password
       );
 
-      const uid = credential.user.uid;
+      const token = await credential.user.getIdToken();
+      const response = await fetch(`${API_BASE_URL}/auth/me`, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-      const userSnapshot = await getDoc(
-        doc(db, "users", uid)
-      );
+      const responseText = await response.text();
+      let profile: ApiProfile = {};
 
-      if (!userSnapshot.exists()) {
-        await signOut(auth);
-
-        Alert.alert(
-          "Access Denied",
-          "Your user profile was not found."
-        );
-        return;
+      if (responseText) {
+        try {
+          profile = JSON.parse(responseText);
+        } catch {
+          throw Object.assign(
+            new Error(
+              `Backend returned an invalid response (HTTP ${response.status}).`
+            ),
+            { code: "api/invalid-response" }
+          );
+        }
       }
 
-      const userData = userSnapshot.data();
-
-      if (userData.active !== true) {
+      if (!response.ok || profile.success !== true) {
         await signOut(auth);
-
-        Alert.alert(
-          "Account Inactive",
-          "Your account is currently inactive."
+        throw Object.assign(
+          new Error(
+            profile.message ||
+              "Your account does not have an active MealSeal API profile."
+          ),
+          { code: "api/profile-unavailable" }
         );
-        return;
       }
 
-      if (userData.role === "CHARITY_ADMIN") {
+      if (profile.role === "CHARITY_ADMIN") {
         router.replace("/admin");
-      } else if (userData.role === "RESTAURANT_STAFF") {
+      } else if (profile.role === "RESTAURANT_STAFF") {
         router.replace("/staff");
       } else {
         await signOut(auth);
@@ -112,6 +127,11 @@ export default function LoginScreen() {
       } else if (error?.code === "auth/network-request-failed") {
         message =
           "Network error. Please check your internet connection.";
+      } else if (error?.code?.startsWith("api/")) {
+        message = error.message;
+      } else if (error?.message === "Network request failed") {
+        message =
+          "Cannot connect to the MealSeal API. Please try again shortly.";
       }
 
       Alert.alert("Login Failed", message);

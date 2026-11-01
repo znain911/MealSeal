@@ -10,8 +10,6 @@ import {
 // @ts-expect-error React Native export is not exposed in the default TypeScript declarations
 import { getReactNativePersistence } from "firebase/auth";
 
-import { getFirestore } from "firebase/firestore";
-
 const firebaseConfig = {
   apiKey: "AIzaSyBadhaWQ5XP96b0VIaOCwjvb4sXHApNGDM",
   authDomain: "mealseal-c49a9.firebaseapp.com",
@@ -24,8 +22,6 @@ const firebaseConfig = {
 const app = getApps().length === 0
   ? initializeApp(firebaseConfig)
   : getApp();
-
-export const db = getFirestore(app);
 
 let authInstance;
 
