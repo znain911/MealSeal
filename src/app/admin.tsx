@@ -144,23 +144,29 @@ export default function AdminDashboard() {
         ) : null}
 
         <View style={styles.statsRow}>
-          <View style={styles.statCard}>
+          <TouchableOpacity
+            style={styles.statCard}
+            onPress={() => router.push("/voucher-history?filter=Valid")}
+          >
             {loading ? (
               <ActivityIndicator color={Colors.light.primary} />
             ) : (
               <Text style={styles.statNumber}>{activeCount}</Text>
             )}
             <Text style={styles.statLabel}>Active</Text>
-          </View>
+          </TouchableOpacity>
 
-          <View style={styles.statCard}>
+          <TouchableOpacity
+            style={styles.statCard}
+            onPress={() => router.push("/voucher-history?filter=Redeemed")}
+          >
             {loading ? (
               <ActivityIndicator color={Colors.light.primary} />
             ) : (
               <Text style={styles.statNumber}>{mealsThisWeek}</Text>
             )}
             <Text style={styles.statLabel}>Meals this week</Text>
-          </View>
+          </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.statCard, styles.statCardCaution]}

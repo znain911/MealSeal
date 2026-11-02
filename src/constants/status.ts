@@ -55,6 +55,21 @@ export const StatusTokens: Record<StatusKey, StatusToken> = {
   },
 };
 
+// Cafés and charities using MealSeal today are NZ-based — "Expiring soon" is judged against the
+// NZ calendar day and clock, not the device's own timezone or a raw UTC offset.
+const BUSINESS_TIME_ZONE = "Pacific/Auckland";
+const SOON_WINDOW_MS = 1000 * 60 * 60 * 24 * 2; // 2 days, for vouchers expiring on a later day
+const SAME_DAY_CAUTION_HOUR = 16; // a voucher expiring today only turns "Expiring soon" from 4pm
+
+function isSameLocalDay(aMs: number, bMs: number, timeZone: string): boolean {
+  const fmt = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" });
+  return fmt.format(new Date(aMs)) === fmt.format(new Date(bMs));
+}
+
+function localHour(ms: number, timeZone: string): number {
+  return Number(new Intl.DateTimeFormat("en-NZ", { timeZone, hour: "numeric", hourCycle: "h23" }).format(new Date(ms)));
+}
+
 /** Backend voucher status (+ a computed "expiring soon" window) -> status token + short label. */
 export function voucherStatusToken(
   status: string,
@@ -62,7 +77,6 @@ export function voucherStatusToken(
 ): { token: StatusToken; label: string } {
   const normalized = status?.toUpperCase();
   const now = Date.now();
-  const soon = 1000 * 60 * 60 * 24 * 2; // 2 days
 
   if (normalized === "REDEEMED") {
     return { token: StatusTokens.redeemed, label: "Redeemed" };
@@ -76,8 +90,18 @@ export function voucherStatusToken(
     return { token: StatusTokens.stop, label: "Expired" };
   }
 
-  if (normalized === "ACTIVE" && expiresAt - now <= soon) {
-    return { token: StatusTokens.caution, label: "Expiring soon" };
+  if (normalized === "ACTIVE") {
+    // A voucher that expires later today is freshly issued and still fine for most of the day —
+    // only flag it once there's a real chance of missing it (from 4pm, NZ time). A voucher expiring
+    // on a later calendar day instead uses the usual "within 2 days" early warning.
+    const expiringToday = isSameLocalDay(expiresAt, now, BUSINESS_TIME_ZONE);
+    const isSoon = expiringToday
+      ? localHour(now, BUSINESS_TIME_ZONE) >= SAME_DAY_CAUTION_HOUR
+      : expiresAt - now <= SOON_WINDOW_MS;
+
+    if (isSoon) {
+      return { token: StatusTokens.caution, label: "Expiring soon" };
+    }
   }
 
   return { token: StatusTokens.verified, label: "Valid" };
