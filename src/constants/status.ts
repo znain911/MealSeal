@@ -94,7 +94,9 @@ export function voucherStatusToken(
     // A voucher that expires later today is freshly issued and still fine for most of the day —
     // only flag it once there's a real chance of missing it (from 4pm, NZ time). A voucher expiring
     // on a later calendar day instead uses the usual "within 2 days" early warning.
-    const expiringToday = isSameLocalDay(expiresAt, now, BUSINESS_TIME_ZONE);
+    // expiresAt is the exclusive instant the voucher lapses (local midnight at the START of the day
+    // after its last valid day), so step back 1ms to land on the calendar day it's actually good for.
+    const expiringToday = isSameLocalDay(expiresAt - 1, now, BUSINESS_TIME_ZONE);
     const isSoon = expiringToday
       ? localHour(now, BUSINESS_TIME_ZONE) >= SAME_DAY_CAUTION_HOUR
       : expiresAt - now <= SOON_WINDOW_MS;
